@@ -1,8 +1,6 @@
 #LISTA pasarle lista de lineas al traductor para su dos fases?
 #3 Implementar 2 vueltas
 
-#CUALQUIER NUEVO MNEMNOCIO CON DIRECCIONAMIENTO INMEDIATO, COMPROBAR SI SU CODIGO DE OP NO SOBREPASA EL BYTE
-#Futuro verificar que tipo de valor posee (direccion, #valor o variable)
 #DUDA: Mnemonico con >1 byte de longitud, sale bien???
 
 #para despues: Saber que tipo de IDX (IDX1 o IDX2)
@@ -12,8 +10,8 @@ import os
 
 def main():
     lines = []
-    if(os.path.exists("P11.asm")):
-        fileAsm = open("P11.asm","r")
+    if(os.path.exists("P13.asm")):
+        fileAsm = open("P13.asm","r")
         traduce = Traductor("tabcop.txt")
         
     #Leemos Archivo
@@ -31,13 +29,13 @@ def main():
         
     #Creamos Archivo .lst
         try:
-            fileList = open("P11.LST","w")
+            fileList = open("P13.LST","w")
             for i in lines:
                 fileList.write(i.toString())
                 print(i.toString())
             fileList.close()
             
-            filetabSim =open("P11.TABSIM","w")
+            filetabSim =open("P13.TABSIM","w")
             for i in traduce.tags:
                 filetabSim.write(i + " -> $" + traduce.tags[i] + "\n")
                 print(i + " -> $" + traduce.tags[i] + "\n")

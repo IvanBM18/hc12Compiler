@@ -1,6 +1,6 @@
-#Comprobacion de bytes: Tomar en cuenta los bytes del codigo de OP
-#1ra vuelta busca mnemonico y reserva la memoria, ademas obtiene el valor de las etiquetas
-#2nda traduce a hexa valores y variables dadas
+#Asginar OPCODE, dentro de procces IDX
+#IDX acepta decimal
+
 import copy
 from operator import truediv
 from mnemonico import Mnemonico
@@ -14,6 +14,7 @@ class Traductor:
     tags = dict()
     tags["FIN:"] = "4012"
     idxModes = {"X":"00","Y":"01","SP":"10","PC":"11"}
+    acumulators = {"A":"00","B":"01","D":"10"}
     contloc = 0
     contlocHex = 0
     calculator = BaseCalculator()
@@ -231,39 +232,72 @@ class Traductor:
         aux = mn.line.split()
         aux = aux[len(aux)-1]
         rr = aux[aux.find(",")+1:]
-        operator = int(mn.value)
-        if(15 >= operator >= -16): #Formula 1 rr0nnnnn
+        operator = mn.value
+        if(operator.find("[") != -1): #Función 3 y 6
+            #Limpiamos corchetes 
+            operator = operator[1:]
+            rr = rr[:-1]
+            if(operator == "D"): #Función 6 111rr111
+                formula = "111" + self.idxModes[rr][0]
+                mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
+                formula = self.idxModes[rr][1] + "111"
+                mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
+                mn.opCode = mn.codes[mn.direcMode]
+                mn.length = 2
+            elif(not operator.isalpha() and int(operator) > 0): #Formula 3 111rr011
+                formula = "111" + self.idxModes[rr][0]
+                mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
+                formula = self.idxModes[rr][1] + "011"
+                mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
+                mn.value += " " + self.calculator.toHexa(operator).removeprefix("0x").rjust(4,"0")
+                mn.opCode = mn.codes[mn.direcMode]
+                mn.length = 4
+            else: #FDR
+                mn.direcMode = ""
+                mn.value = "FDR"
+                mn.opCode = ""
+                mn.length = 0
+        elif(self.acumulators.get(operator) != None): #Función 5 111rr1aa
+            formula = "111" + self.idxModes[rr][0]
+            mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
+            formula = self.idxModes[rr][1] + "1" + self.acumulators[operator]
+            mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
+            mn.opCode = mn.codes[mn.direcMode]
+            mn.length = 2
+        elif(15 >= int(operator) >= -16): #Formula 1 rr0nnnnn -16 a 15
+            operator = int(mn.value)
             mn.length = 2
             formula = self.idxModes[rr] + "0"
-            mn.direcMode = "IDX"
-            if(operator > 0) :
+            if(operator > 0) : #Positivo
                 formula += "0"
                 mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
                 operator = bin(operator).removeprefix("0b")
                 formula = str(operator).rjust(4,'0')
                 mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
-            else:
+            else: #Negatiivo
                 formula += "1"
                 mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
                 operator = self.calculator.binComplement(str(operator))
                 formula = operator.rjust(4,'0')
                 mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
-        else : #Formula 2 111rr0zs
-            mn.direcMode = "IDX1"
+            mn.opCode = mn.codes[mn.direcMode]
+        else : #Formula 2 111rr0zs FF FF (+ y -)
+            operator = int(mn.value)
             mn.length = 2 + self.getBytes(self.calculator.toHexa(mn.value))
             formula = "111" +  self.idxModes[rr][0]
             mn.value = self.calculator.toHexa("%" + formula).removeprefix("0x")
             formula = self.idxModes[rr][1] + "0"
-            if(operator > 0) :
+            formula += str(mn.length - 3)
+            if(operator > 0) : #Positivo
                 formula += "0"
                 operator = self.calculator.toHexa(str(operator)).removeprefix("0x")
-            else:
+            else: #Negativo
                 formula += "1"
                 operator = self.calculator.toHexa(str(operator))
                 operator = self.calculator.hexaComplement(operator).removeprefix("0x")
-            formula += str(mn.length - 3)
             mn.value += self.calculator.toHexa("%" + formula).removeprefix("0x")
             mn.value += " " + operator
+            mn.opCode = mn.codes[mn.direcMode]
         return mn
     
 #BUSQUEDAS
@@ -352,8 +386,8 @@ class Traductor:
                     aux = mn.line.split()
                     aux = aux[len(aux)-1]
                     mn.value = aux[:aux.find(",")]
+                    mn.direcMode = "IDX"
                     mn = self.processIDX(mn)
-                    mn.opCode = mn.codes[mn.direcMode]
                     mn.direction = self.contlocHex
                     return mn
             #FueraDeRango
@@ -373,7 +407,7 @@ class Traductor:
         return None 
     
 #VALIDACIONES
-    #Me indica si es Fuera de Rango
+    #Me indica si es Fuera de Rango en base al tamaño
     def isFDR(self,value:str,opCode:str, maxLength:int):
         value = self.calculator.toHexa(value)
         value = self.getBytes(value)
@@ -382,7 +416,7 @@ class Traductor:
             return False
         return True
     
-    #Me indica si es fuera de Rango pero en REL e IDX
+    #Me indica si es fuera de Rango pero en Restas relativas 
     def isFDRREL(self,number:str,length : int,positive : bool) -> bool:
         if(positive): #Negativa
             if(length == 1): #2 bytes

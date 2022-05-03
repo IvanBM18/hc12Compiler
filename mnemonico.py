@@ -48,7 +48,7 @@ class Mnemonico:
                     result += str(self.value).rjust(4,'0')
                 elif(len(str(self.value)) == 1): #Redondeo de 0s para valor de 1 bytes
                     result += str(self.value).rjust(2,'0')
-                elif(self.value == -1): #valor invalido?
+                elif(self.value == -1): #valor invalido para INH o REL
                     pass
                 else:
                     result += str(self.value)
