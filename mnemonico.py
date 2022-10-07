@@ -30,7 +30,7 @@ class Mnemonico:
         self.length = 0
         self.tag = ""
 #toString
-    def toString(self): #Le falta codigo de Operación
+    def toString(self): 
         result = ""
         if(str(self.direction).find("0x") != -1): #Eliminamos 0x de la dirección
             self.direction = str(self.direction).removeprefix("0x")

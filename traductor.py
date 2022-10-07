@@ -1,8 +1,8 @@
-#Asginar OPCODE, dentro de procces IDX
-#IDX acepta decimal
-
+# 2ndo ASL impresión del valor
+# Impresion EXT con valor sin $
+# BCC es FDR
 import copy
-from operator import truediv
+from os import remove
 from mnemonico import Mnemonico
 from baseCalculator import BaseCalculator 
 class Traductor:
@@ -12,7 +12,6 @@ class Traductor:
     mTable = []
     fLines = []
     tags = dict()
-    tags["FIN:"] = "4012"
     idxModes = {"X":"00","Y":"01","SP":"10","PC":"11"}
     acumulators = {"A":"00","B":"01","D":"10"}
     contloc = 0
@@ -54,14 +53,15 @@ class Traductor:
     #Traduce el mnemonico dado(Momentaneo)
     def toCode(self,line:str):
         aux = line.split()
-        if(line.find(":") == -1):# No existe etiqueta
+        # No existe etiqueta
+        if(line.find(":") == -1):
             mn = copy.copy(self.search(aux[0])) #Comprobar si se necesita un copy
             if(mn != None): #Es Mnemonico
                 mn.line = line
                 mn.value = aux[len(aux)-1]
                 mn = self.findMode(mn)
-                str(mn.value).removeprefix
                 mn.value = str(mn.value).removeprefix("0x")
+                mn.value = str(mn.value).removeprefix("$")
                 mn.value = mn.value.rjust(2,'0')
                 if(mn.value == mn.name) : #caso inherente sin vaor
                     mn.value = -1
@@ -104,24 +104,24 @@ class Traductor:
             self.contloc = int(directive.line[aux:aux+4]) #Inicio contador de localidades
             self.contlocHex = hex(int(str(self.contloc),16)) #Inicio contador de localidades en hexa
             directive.direction = 0
-            directive.name = line;
+            directive.name = line
             directive.value = "--"
             directive.length = 0
             directive.direction = self.contloc
         elif(line == "END"):
-            directive.name = line;
+            directive.name = line
             directive.value = "--"
             directive.length = 0
             directive.direction = self.contlocHex
         elif(line == "START"):
             self.contloc = 0 #Inicio contador de localidades
             self.contlocHex = 0 #Inicio contador de localidades en hexa
-            directive.name = line;
+            directive.name = line
             directive.value = "--"
             directive.length = 0
             directive.direction = self.contlocHex
         elif(line == "EQU"):
-            directive.name = line;
+            directive.name = line
             line = directive.line.split()
             directive.tag = line[0]
             self.tags[tag] = self.calculator.toHexa(line[2]).removeprefix("0x")
@@ -308,7 +308,7 @@ class Traductor:
             operator = str(mn.value) #Valor
             for i in posibleModes: #I es la llave
                 if(i == "INH"):
-                    if(operator != -1):
+                    if(operator == "-1" or operator == mn.name):
                         mn.direcMode = "INH"
                         mn.length = mn.modes[mn.direcMode]
                         mn.opCode = mn.codes[mn.direcMode]
@@ -317,12 +317,15 @@ class Traductor:
                 elif(i == "IMM"):
                     if(operator.find("#") != -1 ):
                         mn.value = mn.value.removeprefix("#")
+                        if(mn.value.find("-") != -1): break
                         if(not self.isFDR(mn.value,mn.codes[i], mn.modes[i])):
                             mn.direcMode = "IMM"
-                            mn.value = self.calculator.toHexa(mn.value);
+                            mn.value = self.calculator.toHexa(mn.value)
                             mn.length = mn.modes[mn.direcMode]
                             mn.opCode = mn.codes[mn.direcMode]
                             mn.direction = self.contlocHex
+                            if(mn.value.find("-0x") != -1):
+                                mn.value = self.calculator.hexaComplement(mn.value)
                             return mn
                         else:
                             break
@@ -331,17 +334,19 @@ class Traductor:
                         if(not self.isFDR(operator,mn.codes[i], mn.modes[i])):
                             mn.direcMode = "DIR"
                             mn.length = mn.modes[mn.direcMode]
+                            mn.value = self.calculator.toHexa(mn.value)
                             mn.opCode = mn.codes[mn.direcMode]
                             mn.direction = self.contlocHex
                             return mn
-                        else:
-                            break
+                        
                 elif(i=="EXT"):
-                    if(operator.find(",") == -1):#Comprobación es un valor
+                    if(operator.find(",") == -1 and operator.find("#") == -1):#Comprobación es un valor
                         if(not self.isFDR(operator,mn.codes[i], mn.modes[i])):
                             mn.direcMode = "EXT"
                             mn.length = mn.modes[mn.direcMode]
                             mn.opCode = mn.codes[mn.direcMode]
+                            mn.value = self.calculator.toHexa(mn.value)
+                            mn.value = str(mn.value).removeprefix("0x")
                             mn.direction = self.contlocHex
                             return mn
                         else:
@@ -350,7 +355,7 @@ class Traductor:
                     if(self.isValue(operator)): #Es numero
                         size = str(self.getBytes(operator)+1)
                         endDirection = self.calculator.hexaSum(size,self.contlocHex) 
-                        result = self.calculator.hexaSubstraction(str(operator),endDirection);
+                        result = self.calculator.hexaSubstraction(str(operator),endDirection)
                         if(result.find("-0x") != -1):
                             result = self.calculator.hexaComplement(result)
                         size = self.getBytes(result) - len(mn.codes["REL"])/2
@@ -368,7 +373,7 @@ class Traductor:
                         tagvalue = self.tags[operator + ":"]
                         size = str(self.getBytes(tagvalue))
                         endDirection = self.calculator.hexaSum(size,self.contlocHex) 
-                        result = self.calculator.hexaSubstraction(tagvalue,endDirection);
+                        result = self.calculator.hexaSubstraction(tagvalue,endDirection)
                         if(result.find("-0x") != -1):
                             result = self.calculator.hexaComplement(result)
                         size = self.getBytes(result) - len(mn.codes["REL"])/2
@@ -468,5 +473,4 @@ class Traductor:
         b = str(self.contlocHex)
         self.contlocHex = int(b,16) + aux
         self.contlocHex = hex(self.contlocHex)
-        
         

@@ -1,3 +1,4 @@
+#Numeros en EXT
 class BaseCalculator:
     base : int
     value : str
@@ -36,6 +37,8 @@ class BaseCalculator:
             number = number.removeprefix("%")
             aux = int(number,2) #Binario a Decimal
             return hex(aux)
+        if(number.find("#") != -1):
+            number = number.removeprefix("#")
         return hex(int(number))#Decimal
     
     #Numero negatio a Binario con C1
